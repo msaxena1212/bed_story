@@ -156,21 +156,44 @@ async def generate_audio_endpoint(data: dict, request: Request):
     if not story_text:
         return {"error": "No story text provided"}
 
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return {"error": "Google API Key not configured"}
+
     try:
-        import edge_tts
-        import tempfile
-        import uuid
+        import httpx, base64
 
-        filename = f"/tmp/story_{uuid.uuid4().hex}.mp3"
-        communicate = edge_tts.Communicate(story_text, voice="en-US-JennyNeural")
-        await communicate.save(filename)
+        tts_url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={api_key}"
+        payload = {
+            "input": {"text": story_text},
+            "voice": {
+                "languageCode": "en-US",
+                "name": "en-US-Journey-F",
+                "ssmlGender": "FEMALE"
+            },
+            "audioConfig": {
+                "audioEncoding": "MP3",
+                "speakingRate": 0.9,   # Slightly slower for bedtime
+                "pitch": -1.0          # Slightly lower for soothing warmth
+            }
+        }
 
-        # Return a URL pointing to the static file
-        base_url = str(request.base_url).rstrip("/")
-        return {"audio_url": f"{base_url}/static/{filename}"}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(tts_url, json=payload)
+            response.raise_for_status()
+            result = response.json()
 
-    except ImportError:
-        return {"error": "Audio generation not available in this environment. Try the local version!"}
+        audio_b64 = result.get("audioContent", "")
+        if not audio_b64:
+            return {"error": "No audio content returned"}
+
+        # Return as a base64 data URL — works directly in HTML <audio> tag!
+        audio_url = f"data:audio/mp3;base64,{audio_b64}"
+        return {"audio_url": audio_url}
+
+    except httpx.HTTPStatusError as e:
+        print(f"Google TTS HTTP error: {e.response.text}")
+        return {"error": f"TTS API error: {e.response.status_code}"}
     except Exception as e:
         print(f"Audio generation error: {e}")
-        return {"error": f"Audio generation failed: {str(e)}"}
+        return {"error": str(e)}

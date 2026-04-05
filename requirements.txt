@@ -3,6 +3,6 @@ httpx
 pydantic
 python-dotenv
 supabase
-edge-tts
+
 google-genai
 uvicorn

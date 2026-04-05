@@ -1,9 +1,18 @@
-import httpx
+import os
 import json
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configure Gemini with the API Key from Environment Variables
+api_key = os.getenv("GOOGLE_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
 
 async def generate_story_stream(data):
     """
-    Asynchronous generator that streams a warm, emotionally supportive story from Llama 3.2.
+    Asynchronous generator that streams a warm, emotionally supportive story from Gemini 1.5 Flash.
     """
     # Build prompt with extreme emotional intelligence and Parent/Child connection
     prompt = f"""
@@ -19,24 +28,17 @@ async def generate_story_stream(data):
     Tone: Extremely comforting, gentle, and loving. No scary elements.
     """
 
-    url = "http://localhost:11434/api/generate"
-    payload = {
-        "model": "glm-5:cloud",
-        "prompt": prompt,
-        "stream": True
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("POST", url, json=payload) as response:
-                async for line in response.aiter_lines():
-                    if line:
-                        chunk = json.loads(line)
-                        if "response" in chunk:
-                            yield chunk["response"]
-                        if chunk.get("done"):
-                            break
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Gemini Streaming API
+        response = model.generate_content(prompt, stream=True)
+        
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+                
     except Exception as e:
-        print(f"Error streaming from Ollama: {e}")
-        # Warm fallback
+        print(f"Error streaming from Gemini: {e}")
+        # Warm fallback if AI fails
         yield f"---STORY---\nOnce upon a time, {data.get('name', 'Hero')} felt very safe and loved. Their blanket was warm, and their heart was happy..."

@@ -85,7 +85,14 @@ INSTRUCTIONS:
 
 Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and loving.
 """
-    MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]
+    # Models ordered by quota availability — lite has highest free RPM
+    MODELS = [
+        "gemini-2.0-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash-8b",
+    ]
     last_error = None
 
     for model_name in MODELS:
@@ -103,15 +110,23 @@ Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and lovin
             last_error = e
             if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                 print(f"Rate limited on {model_name}, trying next model...")
-                time.sleep(1)  # Brief pause before fallback
+                time.sleep(2)  # Wait 2s before trying next model
                 continue
             else:
                 print(f"Gemini error on {model_name}: {e}")
-                break
+                # Don't break — try next model in case it's a model-specific error
+                time.sleep(1)
+                continue
 
-    # All models failed — yield a warm fallback
-    print(f"All Gemini models failed. Last error: {last_error}")
-    yield f"Once upon a time, {data.get('name', 'a brave child')} felt warm, safe, and loved. They snuggled up tight and drifted off to a peaceful sleep, knowing they were truly cherished."
+    # All models failed — yield a warm fallback story so the user isn't left empty
+    print(f"All Gemini models exhausted. Last error: {last_error}")
+    yield (
+        f"✨ Once upon a time, {data.get('name', 'a brave child')} felt wonderfully warm and safe. "
+        "Their cozy blanket wrapped around them like a great big hug. "
+        "Their eyes grew heavy, full of happy dreams, and they drifted off to the most peaceful sleep...\n\n"
+        "---PARENT TIP--- Hug your child tight and whisper: \"You are so loved. Sleep well, my hero.\" 💛\n"
+        "---SEARCH KEYWORDS--- cozy child sleeping stars night"
+    )
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.post("/generate-story")

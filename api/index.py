@@ -1,7 +1,7 @@
 import os
 import re
 import asyncio
-import google.generativeai as genai
+from google import genai
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -9,10 +9,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini
-api_key = os.getenv("GOOGLE_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+# Configure Gemini client
+gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 app = FastAPI()
 
@@ -86,8 +84,10 @@ INSTRUCTIONS:
 Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and loving.
 """
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt, stream=True)
+        response = gemini_client.models.generate_content_stream(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
         for chunk in response:
             if chunk.text:
                 yield chunk.text

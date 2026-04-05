@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StoryMagic AI ✨</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="root">
+        <!-- Top Navbar -->
+        <nav class="navbar" id="navbar">
+            <div class="logo">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                StoryMagic AI
+            </div>
+            <div class="nav-actions">
+                <button class="icon-btn" onclick="navigate('profile')"><i class="fa-solid fa-user"></i></button>
+            </div>
+        </nav>
+
+        <!-- Dynamic Content Mount -->
+        <main id="app-content">
+            <!-- Screen Content Injected Here by App.js -->
+        </main>
+
+        <!-- Bottom Navigation Mobile -->
+        <nav class="bottom-nav">
+            <a href="#" class="nav-item active" onclick="navigate('landing')">
+                <i class="fa-solid fa-house"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="nav-item" onclick="navigate('history')">
+                <i class="fa-solid fa-book"></i>
+                <span>Stories</span>
+            </a>
+            <a href="#" class="nav-item" onclick="navigate('profile')">
+                <i class="fa-solid fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/screens/landing.js?v=2"></script>
+    <script src="js/screens/form.js?v=2"></script>
+    <script src="js/screens/loading.js?v=2"></script>
+    <script src="js/screens/output.js?v=2"></script>
+    <script src="js/screens/history.js?v=2"></script>
+    <script src="js/screens/profile.js?v=2"></script>
+    <script src="js/app.js?v=2"></script>
+</body>
+</html>

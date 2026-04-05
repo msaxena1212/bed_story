@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+backend/debug_ollama.py
+backend/temp_audio.mp3
+backend/temp_audio/
+frontend/temp/
+*.log
+
+# Sensitive
+.env
+secret.json
+credentials.json

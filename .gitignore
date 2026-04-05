@@ -26,3 +26,6 @@ frontend/temp/
 .env
 secret.json
 credentials.json
+
+.vercel
+.env*.local

@@ -75,7 +75,7 @@ async function handleFormSubmit(e) {
         };
 
         // 2. Fetch with Streaming Response
-        const response = await fetch('http://127.0.0.1:8000/generate-story', {
+        const response = await fetch('/generate-story', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload)

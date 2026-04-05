@@ -22,7 +22,7 @@ async function fetchHistory() {
     if (!list) return;
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/stories');
+        const response = await fetch('/stories');
         const stories = await response.json();
 
         if (stories.length === 0) {

@@ -1,0 +1,14 @@
+{
+  "builds": [
+    { "src": "backend/main.py", "use": "@vercel/python" },
+    { "src": "frontend/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/generate-story", "dest": "backend/main.py" },
+    { "src": "/generate-audio", "dest": "backend/main.py" },
+    { "src": "/stories", "dest": "backend/main.py" },
+    { "src": "/save-story", "dest": "backend/main.py" },
+    { "src": "/static/(.*)", "dest": "backend/static/$1" },
+    { "src": "/(.*)", "dest": "frontend/$1" }
+  ]
+}

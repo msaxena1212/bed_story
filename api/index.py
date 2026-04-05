@@ -72,20 +72,47 @@ def generate_image(keywords: str, theme: str) -> str:
     slug = clean.replace(" ", ",")
     return f"https://loremflickr.com/600/400/{slug}"
 
-# ── Gemini story generator ────────────────────────────────────────────────────
-async def gemini_stream(data: dict):
-    prompt = f"""
-Create a {data.get('mood', 'magical')} bedtime story for {data.get('name', 'a child')} (Age: {data.get('age', 5)}).
-Theme: {data.get('theme', 'adventure')}
+# ── Groq streaming (primary) ──────────────────────────────────────────────────
+async def groq_stream(prompt: str):
+    """Stream story from Groq using OpenAI-compatible API."""
+    import httpx, json
 
-INSTRUCTIONS:
-1. STORY: Use warm, comforting 'Secure Attachment' language. The story must feel like a "hug in words."
-2. PARENT CONNECTION: After the story, add a section starting exactly with '---PARENT TIP---' that gives a specific cuddle prompt.
-3. SEARCH KEYWORDS: Then add a section starting exactly with '---SEARCH KEYWORDS---' listing 3-5 simple English keywords for a matching stock photo (e.g., starry night space rocket).
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise Exception("GROQ_API_KEY not configured")
 
-Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and loving.
-"""
-    # Models ordered by quota availability — lite has highest free RPM
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True,
+        "temperature": 0.85,
+        "max_tokens": 800,
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream("POST", "https://api.groq.com/openai/v1/chat/completions",
+                                  headers=headers, json=payload) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        continue
+
+# ── Gemini fallback ───────────────────────────────────────────────────────────
+async def gemini_stream(prompt: str, name: str):
+    """Fallback: try Gemini models in order, yield a warm story if all fail."""
     MODELS = [
         "gemini-2.0-flash-lite",
         "gemini-2.0-flash",
@@ -93,47 +120,65 @@ Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and lovin
         "gemini-1.5-flash-latest",
         "gemini-1.5-flash-8b",
     ]
-    last_error = None
 
     for model_name in MODELS:
         try:
             response = gemini_client.models.generate_content_stream(
-                model=model_name,
-                contents=prompt,
+                model=model_name, contents=prompt,
             )
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
-            return  # Success — stop trying
+            return  # Success
         except Exception as e:
             err_str = str(e)
-            last_error = e
-            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                print(f"Rate limited on {model_name}, trying next model...")
-                time.sleep(2)  # Wait 2s before trying next model
-                continue
-            else:
-                print(f"Gemini error on {model_name}: {e}")
-                # Don't break — try next model in case it's a model-specific error
-                time.sleep(1)
-                continue
+            print(f"Gemini [{model_name}]: {err_str[:120]}")
+            time.sleep(2)
+            continue
 
-    # All models failed — yield a warm fallback story so the user isn't left empty
-    print(f"All Gemini models exhausted. Last error: {last_error}")
+    # All models exhausted — return a warm built-in story
     yield (
-        f"✨ Once upon a time, {data.get('name', 'a brave child')} felt wonderfully warm and safe. "
+        f"✨ Once upon a time, {name} felt wonderfully warm and safe. "
         "Their cozy blanket wrapped around them like a great big hug. "
         "Their eyes grew heavy, full of happy dreams, and they drifted off to the most peaceful sleep...\n\n"
-        "---PARENT TIP--- Hug your child tight and whisper: \"You are so loved. Sleep well, my hero.\" 💛\n"
-        "---SEARCH KEYWORDS--- cozy child sleeping stars night"
+        "---PARENT TIP--- Hold your child close and whisper: \"You are so loved. Sleep well, my hero.\" 💛\n"
+        "---SEARCH KEYWORDS--- cozy child sleeping stars night peaceful"
     )
+
+# ── Combined generator (Groq primary, Gemini fallback) ───────────────────────
+async def generate_story(data: dict):
+    prompt = f"""
+Create a {data.get('mood', 'magical')} bedtime story for {data.get('name', 'a child')} (Age: {data.get('age', 5)}).
+Theme: {data.get('theme', 'adventure')}
+
+INSTRUCTIONS:
+1. STORY: Use warm, comforting 'Secure Attachment' language. The story must feel like a "hug in words."
+2. PARENT CONNECTION: After the story, add a section starting exactly with '---PARENT TIP---' that gives a specific cuddle prompt.
+3. SEARCH KEYWORDS: Then add a section starting exactly with '---SEARCH KEYWORDS---' listing 3-5 simple English keywords for a matching stock photo.
+
+Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and loving. No scary elements.
+"""
+    name = data.get('name', 'a brave child')
+
+    # Try Groq first
+    try:
+        async for chunk in groq_stream(prompt):
+            yield chunk
+        return
+    except Exception as e:
+        print(f"Groq failed, falling back to Gemini: {e}")
+
+    # Fall back to Gemini
+    async for chunk in gemini_stream(prompt, name):
+        yield chunk
+
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.post("/generate-story")
 async def generate(data: dict, request: Request):
     async def story_generator():
         full_text = ""
-        async for chunk in gemini_stream(data):
+        async for chunk in generate_story(data):
             full_text += chunk
             yield chunk
 

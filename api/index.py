@@ -1,7 +1,9 @@
 import os
 import re
 import asyncio
+import time
 from google import genai
+from google.genai import types
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -83,17 +85,33 @@ INSTRUCTIONS:
 
 Total Story Length: 200-300 words. Tone: Extremely comforting, gentle, and loving.
 """
-    try:
-        response = gemini_client.models.generate_content_stream(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
-    except Exception as e:
-        print(f"Gemini error: {e}")
-        yield f"Once upon a time, {data.get('name', 'a brave child')} felt warm, safe, and loved..."
+    MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]
+    last_error = None
+
+    for model_name in MODELS:
+        try:
+            response = gemini_client.models.generate_content_stream(
+                model=model_name,
+                contents=prompt,
+            )
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+            return  # Success — stop trying
+        except Exception as e:
+            err_str = str(e)
+            last_error = e
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                print(f"Rate limited on {model_name}, trying next model...")
+                time.sleep(1)  # Brief pause before fallback
+                continue
+            else:
+                print(f"Gemini error on {model_name}: {e}")
+                break
+
+    # All models failed — yield a warm fallback
+    print(f"All Gemini models failed. Last error: {last_error}")
+    yield f"Once upon a time, {data.get('name', 'a brave child')} felt warm, safe, and loved. They snuggled up tight and drifted off to a peaceful sleep, knowing they were truly cherished."
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.post("/generate-story")

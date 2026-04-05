@@ -174,44 +174,47 @@ async def generate_audio_endpoint(data: dict, request: Request):
     if not story_text:
         return {"error": "No story text provided"}
 
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
-        return {"error": "Google API Key not configured"}
+        return {"error": "ElevenLabs API Key not configured"}
 
     try:
         import httpx, base64
 
-        tts_url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={api_key}"
+        # Rachel voice — warm, soothing, perfect for bedtime
+        VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg"
+        }
+
+        # Optimize voice settings for a bedtime story
         payload = {
-            "input": {"text": story_text},
-            "voice": {
-                "languageCode": "en-US",
-                "name": "en-US-Journey-F",
-                "ssmlGender": "FEMALE"
-            },
-            "audioConfig": {
-                "audioEncoding": "MP3",
-                "speakingRate": 0.9,   # Slightly slower for bedtime
-                "pitch": -1.0          # Slightly lower for soothing warmth
+            "text": story_text,
+            "model_id": "eleven_turbo_v2_5",
+            "voice_settings": {
+                "stability": 0.75,
+                "similarity_boost": 0.85,
+                "style": 0.3,
+                "use_speaker_boost": True
             }
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(tts_url, json=payload)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
-            result = response.json()
+            audio_bytes = response.content
 
-        audio_b64 = result.get("audioContent", "")
-        if not audio_b64:
-            return {"error": "No audio content returned"}
-
-        # Return as a base64 data URL — works directly in HTML <audio> tag!
-        audio_url = f"data:audio/mp3;base64,{audio_b64}"
-        return {"audio_url": audio_url}
+        # Return as base64 data URL — works directly in HTML <audio> tag!
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        return {"audio_url": f"data:audio/mpeg;base64,{audio_b64}"}
 
     except httpx.HTTPStatusError as e:
-        print(f"Google TTS HTTP error: {e.response.text}")
-        return {"error": f"TTS API error: {e.response.status_code}"}
+        print(f"ElevenLabs error: {e.response.status_code} {e.response.text}")
+        return {"error": f"Voice generation failed: {e.response.status_code}"}
     except Exception as e:
-        print(f"Audio generation error: {e}")
+        print(f"Audio error: {e}")
         return {"error": str(e)}

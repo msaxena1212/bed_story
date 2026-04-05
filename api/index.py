@@ -148,3 +148,29 @@ async def save_story_endpoint(data: dict):
 @app.get("/stories")
 async def get_stories():
     return fetch_stories()
+
+
+@app.post("/generate-audio")
+async def generate_audio_endpoint(data: dict, request: Request):
+    story_text = data.get("story_text")
+    if not story_text:
+        return {"error": "No story text provided"}
+
+    try:
+        import edge_tts
+        import tempfile
+        import uuid
+
+        filename = f"/tmp/story_{uuid.uuid4().hex}.mp3"
+        communicate = edge_tts.Communicate(story_text, voice="en-US-JennyNeural")
+        await communicate.save(filename)
+
+        # Return a URL pointing to the static file
+        base_url = str(request.base_url).rstrip("/")
+        return {"audio_url": f"{base_url}/static/{filename}"}
+
+    except ImportError:
+        return {"error": "Audio generation not available in this environment. Try the local version!"}
+    except Exception as e:
+        print(f"Audio generation error: {e}")
+        return {"error": f"Audio generation failed: {str(e)}"}

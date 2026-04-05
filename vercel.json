@@ -1,14 +1,14 @@
 {
+  "version": 2,
   "builds": [
-    { "src": "backend/main.py", "use": "@vercel/python" },
+    { "src": "api/index.py", "use": "@vercel/python" },
     { "src": "frontend/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/generate-story", "dest": "backend/main.py" },
-    { "src": "/generate-audio", "dest": "backend/main.py" },
-    { "src": "/stories", "dest": "backend/main.py" },
-    { "src": "/save-story", "dest": "backend/main.py" },
-    { "src": "/static/(.*)", "dest": "backend/static/$1" },
+    { "src": "/generate-story", "dest": "api/index.py" },
+    { "src": "/generate-audio", "dest": "api/index.py" },
+    { "src": "/stories", "dest": "api/index.py" },
+    { "src": "/save-story", "dest": "api/index.py" },
     { "src": "/(.*)", "dest": "frontend/$1" }
   ]
 }
